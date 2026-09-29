@@ -28,7 +28,7 @@ module.exports = {
     {
       id: 'billiards',
       name: '台球 · 黑八',
-      desc: '局域网双人黑八(独立进程接入,现有代码零改动)',
+      desc: '局域网双人黑八',
       mode: 'external',
       command: 'server.js',             // 相对项目根目录
       args: [],
