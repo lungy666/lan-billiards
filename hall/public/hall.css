@@ -98,6 +98,8 @@ body {
   background: rgba(255,255,255,.6);
 }
 .tb-right { display: flex; align-items: center; gap: 10px; }
+/* 进入房间后隐藏顶栏,让游戏画面占满整屏 */
+body.in-room .topbar { display: none; }
 .whoami {
   color: var(--muted); font-size: 14px;
   padding: 6px 14px;

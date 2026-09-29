@@ -106,6 +106,7 @@
     gameApi.snapshot = m.snapshot || null;
     $('lobbyView').style.display = 'none';
     $('roomView').style.display = 'flex';
+    document.body.classList.add('in-room');
     updateRoomHeader();
     mountGame();
   }
@@ -135,6 +136,7 @@
     $('gameMount').innerHTML = '';
     $('roomView').style.display = 'none';
     $('lobbyView').style.display = 'block';
+    document.body.classList.remove('in-room');
     renderRooms();
   }
 
