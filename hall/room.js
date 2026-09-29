@@ -49,6 +49,7 @@ class Room {
       specCount: this.spectators.size,
       ready: this.ready,
       entry: this.adapter.entry ? this.adapter.entry() : null,
+      gameTheme: this.def.theme || null,
       createdAt: this.createdAt,
     };
   }

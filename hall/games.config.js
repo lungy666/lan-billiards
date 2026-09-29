@@ -35,6 +35,11 @@ module.exports = {
       minPlayers: 2,
       maxPlayers: 2,
       allowSpectators: true,
+      // 房间氛围主题(仅大厅渲染使用,不影响游戏本身)
+      theme: {
+        bg: 'linear-gradient(160deg, #e9f6ef 0%, #cbe7d8 100%)',
+        accent: '#2f8f5e',
+      },
     },
   ],
 

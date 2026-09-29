@@ -322,7 +322,22 @@ body.in-room .topbar { display: none; }
 }
 
 /* ---------- 房间视图 ---------- */
-#roomView { display: flex; flex-direction: column; }
+#roomView {
+  display: flex;
+  flex-direction: column;
+  background: var(--game-bg, transparent);
+  transition: background .35s ease;
+}
+/* 带氛围主题的房间(如台球),给游戏区加一圈主题色描边 */
+body.in-themed-room #roomView { padding: 14px clamp(14px, 3vw, 30px) 18px; }
+body.in-themed-room .game-mount {
+  border-color: var(--game-accent, var(--border));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55), 0 0 0 1px var(--game-accent, transparent), 0 18px 46px rgba(30, 50, 90, 0.18);
+}
+body.in-themed-room .room-meta {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: color-mix(in srgb, var(--game-accent, #2563eb) 35%, transparent);
+}
 .room-head {
   display: flex;
   align-items: center;

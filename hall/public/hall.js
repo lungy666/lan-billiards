@@ -107,6 +107,7 @@
     $('lobbyView').style.display = 'none';
     $('roomView').style.display = 'flex';
     document.body.classList.add('in-room');
+    applyGameTheme(H.room);
     updateRoomHeader();
     mountGame();
   }
@@ -114,6 +115,7 @@
   function onRoom(room) {
     H.room = room;
     gameApi.room = room;
+    applyGameTheme(room);
     if ($('roomView').style.display !== 'none') updateRoomHeader();
     if (H.gameMod && H.gameMod.onRoom) H.gameMod.onRoom(room, gameApi.me);
     // 外部游戏进程就绪后,再挂载 iframe
@@ -141,6 +143,15 @@
   }
 
   /* ---------------- 游戏挂载 ---------------- */
+  // 按房间所属游戏应用氛围主题(配置在 games.config.js 的 theme 字段)
+  function applyGameTheme(room) {
+    const el = $('roomView');
+    const t = room && room.gameTheme;
+    if (t && t.bg) el.style.setProperty('--game-bg', t.bg); else el.style.removeProperty('--game-bg');
+    if (t && t.accent) el.style.setProperty('--game-accent', t.accent); else el.style.removeProperty('--game-accent');
+    document.body.classList.toggle('in-themed-room', !!(t && t.bg));
+  }
+
   function mountGame() {
     const mountEl = $('gameMount');
     mountEl.innerHTML = '';

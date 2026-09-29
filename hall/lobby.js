@@ -23,6 +23,7 @@ class Lobby {
       minPlayers: g.minPlayers || 1,
       maxPlayers: g.maxPlayers || 2,
       allowSpectators: g.allowSpectators !== false,
+      theme: g.theme || null,
     }));
   }
 
