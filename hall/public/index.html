@@ -3,14 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="theme-color" content="#0d1117">
+<meta name="theme-color" content="#070b14">
 <title>局域网游戏大厅</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230d1117'/><text x='50' y='68' font-size='56' text-anchor='middle'>🎮</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23070b14'/><text x='50' y='70' font-size='58' text-anchor='middle'>🎮</text></svg>">
 <link rel="stylesheet" href="/hall.css">
 </head>
 <body>
+<div class="bg-decor" aria-hidden="true">
+  <span class="blob b1"></span>
+  <span class="blob b2"></span>
+  <span class="blob b3"></span>
+  <span class="grid-lines"></span>
+</div>
+
 <header class="topbar">
-  <div class="brand">🎮 <span>局域网游戏大厅</span></div>
+  <div class="brand">
+    <span class="brand-icon">🎮</span>
+    <span class="brand-name">游戏大厅</span>
+    <span class="brand-sub">LAN&nbsp;ARCADE</span>
+  </div>
   <div class="tb-right">
     <span id="whoami" class="whoami"></span>
     <button id="refreshBtn" class="icon-btn" title="刷新房间">⟳</button>
@@ -21,10 +32,18 @@
 <main id="app">
   <!-- 大厅视图 -->
   <section id="lobbyView" class="view">
-    <div class="section-title">选择游戏</div>
+    <div class="hero">
+      <h1>选一款游戏,开个房间一起玩</h1>
+      <p>同一个局域网内,打开网页即可加入 · 人满自动观战</p>
+    </div>
+
+    <div class="section-title"><span class="bar"></span>选择游戏</div>
     <div id="gameList" class="game-grid"></div>
 
-    <div class="section-title">房间列表 <button id="mkRefresh" class="mini">刷新</button></div>
+    <div class="section-title">
+      <span class="bar"></span>房间列表
+      <button id="mkRefresh" class="mini">刷新</button>
+    </div>
     <div id="roomList" class="room-list"></div>
   </section>
 
@@ -41,7 +60,9 @@
 
 <div id="overlay" class="overlay show">
   <div class="card">
-    <h1>🎮 游戏大厅</h1>
+    <div class="card-glow"></div>
+    <div class="logo-badge">🎮</div>
+    <h1>游戏大厅</h1>
     <div class="sub">同一局域网的设备打开本页即可加入<br>选择一个游戏创建房间,或加入已有房间</div>
     <input type="text" id="nameInput" maxlength="12" placeholder="输入你的昵称" autocomplete="off">
     <div class="admin-link" id="adminLink">管理员登录</div>
