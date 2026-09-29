@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0b0f0d">
+<title>局域网台球 · 黑八</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='%23111'/><circle cx='50' cy='50' r='22' fill='%23fff'/><text x='50' y='60' font-size='30' font-weight='bold' text-anchor='middle' fill='%23111'>8</text></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <div class="logo">🎱 <span>局域网台球</span><em>黑八</em></div>
+  <div class="room-info" id="roomInfo">正在连接…</div>
+  <button id="adminBtn" title="对局管理" style="display:none">👑</button>
+  <button id="muteBtn" title="声音开关">🔊</button>
+</header>
+
+<main id="stage">
+  <canvas id="cv"></canvas>
+  <div id="toasts"></div>
+</main>
+
+<footer id="hud">
+  <div class="pcard" id="card0">
+    <div class="prow"><span class="pname" id="name0">空位</span><span class="ptag" id="tag0"></span></div>
+    <div class="pgroup" id="group0">等待加入</div>
+    <div class="pballs" id="balls0"></div>
+  </div>
+  <div class="center">
+    <div id="statusLine">…</div>
+    <div id="ctrlRow">
+      <div id="tipWidget" title="击球点:点击/拖拽设置高低杆与左右塞,双击复位">
+        <div id="tipBall"><div id="tipDot"></div></div>
+        <div id="tipLabel">击球点</div>
+      </div>
+      <div id="powerWrap" title="力度">
+        <div id="powerBar"><div id="powerFill"></div></div>
+        <span id="powerText">0%</span>
+      </div>
+    </div>
+  </div>
+  <div class="pcard" id="card1">
+    <div class="prow"><span class="pname" id="name1">空位</span><span class="ptag" id="tag1"></span></div>
+    <div class="pgroup" id="group1">等待加入</div>
+    <div class="pballs" id="balls1"></div>
+  </div>
+</footer>
+
+<div id="overlay"></div>
+<div id="banner"></div>
+
+<script src="/physics.js"></script>
+<script src="/client.js"></script>
+</body>
+</html>
