@@ -26,6 +26,20 @@ module.exports = {
       allowSpectators: true,
     },
     {
+      id: 'spider',
+      name: '蜘蛛纸牌',
+      desc: '单机接龙 · 1/2/4 花色可选 · 支持撤销与观战',
+      mode: 'inprocess',
+      entry: 'spider/server.js',      // 相对 hall/games/
+      minPlayers: 1,
+      maxPlayers: 1,
+      allowSpectators: true,
+      theme: {
+        bg: 'linear-gradient(160deg, #d9f0e3 0%, #b9e0cb 100%)',
+        accent: '#0f7a4c',
+      },
+    },
+    {
       id: 'billiards',
       name: '台球 · 黑八',
       desc: '局域网双人黑八',

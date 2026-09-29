@@ -21,6 +21,7 @@ HALL_PORT=8080 node hall/index.js
 | 游戏 | 接入方式 | 说明 |
 |---|---|---|
 | 五子棋 | 进程内模块 | `hall/games/gomoku/`,接口参考实现 |
+| 蜘蛛纸牌 | 进程内模块 | `hall/games/spider/`,单机接龙(服务端权威,支持观战/撤销) |
 | 台球 · 黑八 | 外部进程 | 复用根目录 `server.js`,未改一行 |
 
 ## 目录
@@ -31,7 +32,7 @@ hall/
 ├── games.config.js   游戏注册表(接入点)
 ├── lobby.js / room.js / session.js
 ├── adapters/         inprocess.js(方式B)/ external.js(方式A)
-├── games/            进程内游戏
+├── games/            进程内游戏(gomoku / spider)
 ├── public/           大厅 UI
 ├── test/             自测脚本
 └── INTEGRATION.md    ★ 新游戏接入指南
@@ -41,8 +42,24 @@ hall/
 
 ```bash
 node hall/test/test-gomoku.js     # 五子棋:对局 / 观战 / 再来一局
+node hall/test/test-spider.js     # 蜘蛛纸牌:发牌 / 移动 / 撤销 / 观战只读
 node hall/test/test-external.js   # 台球:外部进程启动与页面可达
 ```
+
+> 跑测试前先启动大厅(默认端口 3000;测试默认连 3999,可 `HALL_PORT=3999 node hall/index.js`)。
+
+## 蜘蛛纸牌玩法
+
+单机游戏(`maxPlayers: 1`,多出来的自动观战):
+
+- 进房先进难度面板选难度:**简单**(单花色)/ **普通**(双花色)/ **困难**(四花色),随时点「新游戏」重开;
+- 顶部左侧为 8 个目标槽,右侧为牌堆(点击发牌,有空列时不可发);
+- 拖动或点选两下列来移动**同花色连续降序**牌组;任意牌可压到比自己大 1 点的牌上;
+- 凑齐 K→A 同花色自动收走,收满 8 组获胜;支持撤销;
+- 鼠标拖拽、点选两次、点击牌堆发牌均可操作;发牌 / 移牌有滑动动画,通关撒花。
+
+实现要点:`hall/games/spider/{server.js, public/client.js}`,服务端持有完整牌局,
+向客户端只下发暗牌张数(不泄露点数/花色),因此观战、重连安全。
 
 ## 接入新游戏
 
