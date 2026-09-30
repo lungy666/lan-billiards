@@ -14,6 +14,7 @@
   <div class="room-info" id="roomInfo">正在连接…</div>
   <button id="adminBtn" title="对局管理" style="display:none">👑</button>
   <button id="muteBtn" title="声音开关">🔊</button>
+  <button id="switchModeBtn" class="btn ghost" onclick="location.href = new URLSearchParams(location.search).get('mode') === 'solo' ? '/' : '/?mode=solo'" title="离开当前对局并切换模式">切换模式</button>
 </header>
 
 <main id="stage">
@@ -29,6 +30,30 @@
   </div>
   <div class="center">
     <div id="statusLine">…</div>
+    <details id="precisionPanel" open>
+      <summary>精细击球 · 高低杆 / 左右塞</summary>
+      <fieldset id="precisionControls" disabled>
+        <div class="shot-presets">
+          <button type="button" data-tip="0,0.45">高杆</button>
+          <button type="button" data-tip="0,0">中杆</button>
+          <button type="button" data-tip="0,-0.45">低杆</button>
+          <button type="button" data-tip="-0.35,0">左塞</button>
+          <button type="button" data-tip="0.35,0">右塞</button>
+        </div>
+        <label>左塞 ← → 右塞 <output id="sideValue">0%</output><input id="sideSpin" type="range" min="-55" max="55" step="1" value="0"></label>
+        <label>低杆 ← → 高杆 <output id="topValue">0%</output><input id="topSpin" type="range" min="-55" max="55" step="1" value="0"></label>
+        <label>力度 <output id="shotPowerValue">45%</output><input id="shotPower" type="range" min="5" max="100" step="1" value="45"></label>
+        <div class="shot-presets">
+          <button type="button" id="aimMinus">角度 −0.1°</button>
+          <output id="aimValue">0.0°</output>
+          <button type="button" id="aimPlus">角度 +0.1°</button>
+          <button type="button" id="preciseShoot">按设定击球</button>
+        </div>
+        <label><input id="aimLock" type="checkbox"> 锁定瞄准（移开鼠标调杆法时保持方向）</label>
+      </fieldset>
+      <label><input id="previewToggle" type="checkbox" checked> 轨迹预览：白线母球，金线目标球（最多 6 秒）</label>
+      <div class="shot-note">击球点数值为球半径百分比；可组合高低杆与侧塞，总偏移不超过 55%。拖拽出杆时使用拖拽力度。预览基于游戏模型，不代表真实球台。</div>
+    </details>
     <div id="ctrlRow">
       <div id="tipWidget" title="击球点:点击/拖拽设置高低杆与左右塞,双击复位">
         <div id="tipBall"><div id="tipDot"></div></div>

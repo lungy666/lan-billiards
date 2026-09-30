@@ -205,6 +205,7 @@ const G = {
   balls: [],
   remoteAim: null,
   myAim: { a: 0, p: 0, off: [0, 0] },
+  precisePower: 0.45,
   pull: { active: false, charge: false, dirx: 1, diry: 0, sx: 0, sy: 0, power: 0 },
   ghost: { show: false, x: 0, y: 0, valid: false },
   strikeFx: null,
@@ -227,7 +228,10 @@ function send(obj) { if (G.ws && G.ws.readyState === 1) G.ws.send(JSON.stringify
 
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const q = /[?&]test=1/.test(location.search) ? '?test=1' : '';
+  const params = new URLSearchParams();
+  if (/[?&]test=1/.test(location.search)) params.set('test', '1');
+  if (new URLSearchParams(location.search).get('mode') === 'solo') params.set('mode', 'solo');
+  const q = '?' + params.toString();
   let ws;
   try { ws = new WebSocket(proto + '://' + location.host + '/ws' + q); }
   catch (e) { setTimeout(connect, 1500); return; }
@@ -330,6 +334,7 @@ function applyRoom(m) {
   }
   canvas.classList.toggle('placing', m.phase === 'placing' && G.my.seat !== null && m.turn === G.my.seat);
   $('tipWidget').classList.toggle('active', m.phase === 'aiming' && G.my.seat !== null && m.turn === G.my.seat);
+  $('precisionControls').disabled = !myTurnAiming();
   if (adminPanelEl) renderAdminPanel();
 }
 
@@ -360,6 +365,10 @@ function updateTipDot() {
   const max = ball.clientWidth / 2 - 6;
   dot.style.left = `calc(50% + ${(a / 0.55) * max}px)`;
   dot.style.top = `calc(50% + ${(-b / 0.55) * max}px)`;
+  $('sideSpin').value = Math.round(a * 100);
+  $('topSpin').value = Math.round(b * 100);
+  $('sideValue').textContent = Math.round(a * 100) + '%';
+  $('topValue').textContent = Math.round(b * 100) + '%';
 }
 function setTipFromEvent(e) {
   const ball = $('tipBall');
@@ -434,6 +443,7 @@ function updateRoomInfo() {
     el.textContent = '等待玩家加入…';
   }
   const spec = r.specCount != null ? r.specCount : G.specCount;
+  if (r.mode === 'solo') el.appendChild(document.createTextNode(' · 人机对战'));
   if (spec > 0) el.appendChild(document.createTextNode(` · 👁 ${spec}`));
 }
 
@@ -485,15 +495,20 @@ function showJoin(prefill) {
   overlay.innerHTML = `
     <div class="card">
       <h1>🎱 局域网台球</h1>
-      <div class="sub">同一局域网的设备打开本页即可加入<br>先到者坐 1 号位,后到者坐 2 号位,其余观战</div>
+      <div class="sub">${new URLSearchParams(location.search).get('mode') === 'solo' ? '独立人机对局，电脑自动接招<br>无需等待其他玩家' : '同一局域网的设备打开本页即可加入<br>先到者坐 1 号位,后到者坐 2 号位,其余观战'}</div>
       <input type="text" id="joinName" maxlength="12" placeholder="输入你的昵称" autocomplete="off">
       <div class="admin-link" id="adminLink">管理员登录</div>
       <input type="password" id="adminPass" maxlength="24" placeholder="管理员密码" autocomplete="off" style="display:none">
       <br>
-      <button class="btn" id="joinBtn">加入对局</button>
+      <button class="btn" id="joinBtn">${new URLSearchParams(location.search).get('mode') === 'solo' ? '开始人机对战' : '加入联机对局'}</button>
+      <button class="btn ghost" id="modeBtn">${new URLSearchParams(location.search).get('mode') === 'solo' ? '切换到联机对战' : '单机 · 挑战电脑'}</button>
     </div>`;
   const inp = $('joinName');
   inp.value = prefill || '';
+  $('modeBtn').onclick = () => {
+    localStorage.setItem('pool_name', inp.value.trim().slice(0, 12));
+    location.href = new URLSearchParams(location.search).get('mode') === 'solo' ? '/' : '/?mode=solo';
+  };
   $('adminLink').onclick = () => {
     const p = $('adminPass');
     const show = p.style.display === 'none';
@@ -527,7 +542,9 @@ function showWaiting(mySeat) {
       <div class="sub">你已就座:${mySeat === 0 ? '1 号位' : '2 号位'}。<br>把下面的地址发给同一局域网的朋友,浏览器打开即可加入。</div>
       <div class="linkbox" id="linkbox">正在获取局域网地址…</div>
       <span class="seat-badge"><span class="spin"></span>等待玩家加入</span>
+      <button class="btn ghost" id="soloBtn">不等了，挑战电脑</button>
     </div>`;
+  $('soloBtn').onclick = () => { location.href = '/?mode=solo'; };
   fetch('/laninfo').then(r => r.json()).then(info => {
     const box = $('linkbox');
     if (!box) return;
@@ -721,6 +738,7 @@ function resize() {
   buildTable();
 }
 window.addEventListener('resize', resize);
+$('precisionPanel').addEventListener('toggle', resize);
 
 function buildTable() {
   tableCache.width = canvas.width;
@@ -832,6 +850,27 @@ function drawBall(x, y, r, id) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(String(id), x, y + r * 0.05);
+}
+
+let previewCache = { key: '', time: -Infinity, paths: [] };
+function drawPrediction(src, now) {
+  const power = G.pull.active ? G.pull.power : G.precisePower;
+  const key = JSON.stringify([src.a, power, src.off, G.balls.filter(Boolean).map(b => [b.id, b.x, b.y, b.potted])]);
+  if (key !== previewCache.key && now - previewCache.time >= 120) {
+    previewCache = { key, time: now, paths: B.predict(G.balls, src.a, power, src.off || [0, 0]) };
+  }
+  // Do not show a stale prediction while controls are being adjusted.
+  if (key !== previewCache.key) return;
+  ctx.save();
+  ctx.setLineDash([4, 5]);
+  ctx.lineWidth = 1.5;
+  for (const path of previewCache.paths) {
+    ctx.strokeStyle = path.id === 0 ? 'rgba(255,255,255,0.8)' : 'rgba(246,196,69,0.65)';
+    ctx.beginPath();
+    path.points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function drawGuide(bx, by, a) {
@@ -989,7 +1028,8 @@ function draw(now) {
       ctx.stroke();
       ctx.setLineDash([]);
     }
-    drawGuide(cueBall.rx, cueBall.ry, src.a);
+    if (src.mine && $('previewToggle').checked) drawPrediction(src, now);
+    else drawGuide(cueBall.rx, cueBall.ry, src.a);
     drawCue(cueBall.rx, cueBall.ry, src.a, src.pulling ? src.p : 0, 1, offA);
     // 击球点标记(球杆皮头触碰位置)
     if (Math.abs(offA) > 0.02) {
@@ -1048,7 +1088,7 @@ canvas.addEventListener('pointerdown', e => {
   if (!myTurnAiming()) return;
   const cue = G.balls[0];
   if (!cue || cue.potted) return;
-  const a = Math.atan2(w.y - cue.ry, w.x - cue.rx);
+  const a = $('aimLock').checked ? G.myAim.a : Math.atan2(w.y - cue.ry, w.x - cue.rx);
   G.myAim.a = a;
   G.pull.active = true;
   G.pull.charge = false;
@@ -1076,7 +1116,7 @@ canvas.addEventListener('pointermove', e => {
   if (!cue || cue.potted) return;
   if (G.pull.active && !G.pull.charge) {
     G.pull.power = clamp(((G.pull.sx - w.x) * G.pull.dirx + (G.pull.sy - w.y) * G.pull.diry) / 260, 0, 1);
-  } else if (!G.pull.active) {
+  } else if (!G.pull.active && !$('aimLock').checked) {
     G.myAim.a = Math.atan2(w.y - cue.ry, w.x - cue.rx);
   }
   sendAim();
@@ -1097,7 +1137,7 @@ canvas.addEventListener('pointerleave', () => { if (!G.pull.active) G.ghost.show
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 
 window.addEventListener('keydown', e => {
-  if (e.target && e.target.tagName === 'INPUT') return;
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON')) return;
   if (e.code === 'Space' && myTurnAiming() && !G.pull.active) {
     G.pull.active = true;
     G.pull.charge = true;
@@ -1143,6 +1183,7 @@ function frame(now) {
     sendAim();
   }
   draw(now);
+  $('aimValue').textContent = ((G.myAim.a * 180 / Math.PI % 360 + 360) % 360).toFixed(1) + '°';
   updateStatus();
   requestAnimationFrame(frame);
 }
@@ -1176,6 +1217,36 @@ resize();
 connect();
 requestAnimationFrame(frame);
 updateTipDot();
+
+function setPrecisionTip(a, b) {
+  if (!myTurnAiming()) return;
+  const length = Math.hypot(a, b);
+  const scale = length > 0.55 ? 0.55 / length : 1;
+  G.myAim.off = [a * scale, b * scale];
+  updateTipDot();
+  sendAim(true);
+}
+document.querySelectorAll('[data-tip]').forEach(button => {
+  button.onclick = () => setPrecisionTip(...button.dataset.tip.split(',').map(Number));
+});
+$('sideSpin').oninput = e => setPrecisionTip(+e.target.value / 100, G.myAim.off[1]);
+$('topSpin').oninput = e => setPrecisionTip(G.myAim.off[0], +e.target.value / 100);
+$('shotPower').oninput = e => {
+  G.precisePower = +e.target.value / 100;
+  $('shotPowerValue').textContent = e.target.value + '%';
+};
+for (const [id, sign] of [['aimMinus', -1], ['aimPlus', 1]]) {
+  $(id).onclick = () => {
+    if (!myTurnAiming()) return;
+    $('aimLock').checked = true;
+    G.myAim.a += sign * Math.PI / 1800;
+    sendAim(true);
+  };
+}
+$('preciseShoot').onclick = () => {
+  if (!myTurnAiming() || G.pull.active) return;
+  send({ t: 'shoot', a: G.myAim.a, p: G.precisePower, off: G.myAim.off });
+};
 
 /* 调试钩子(?test=1 时可用) */
 window.__errs = [];

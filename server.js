@@ -10,6 +10,7 @@ const path = require('path');
 const os = require('os');
 const wslib = require('./wslib');
 const P = require('./physics');
+const AI = require('./ai');
 
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
@@ -45,10 +46,11 @@ function serveStatic(req, res) {
 }
 
 /* ---------------- 房间状态 ---------------- */
+function createRoom(solo = false) {
 const state = {
   phase: 'lobby',          // lobby | placing | aiming | sim | over
   balls: P.rack(),
-  players: [null, null],   // { name, conn } —— 0/1 号位
+  players: [null, solo ? { name: '电脑', bot: true } : null],
   spectators: new Set(),
   turn: 0,
   groups: [null, null],    // 'solid'(全色) | 'stripe'(花色)
@@ -82,6 +84,7 @@ function toast(text, except) { broadcast({ t: 'msg', text }, except); }
 function roomMsg() {
   return {
     t: 'room',
+    mode: solo ? 'solo' : 'pvp',
     phase: state.phase,
     balls: state.balls.map(b => [b.id, r2(b.x), r2(b.y), b.potted ? 1 : 0]),
     turn: state.turn,
@@ -91,7 +94,7 @@ function roomMsg() {
     breaker: state.breaker,
     winner: state.winner,
     reason: state.reason,
-    players: state.players.map((p, i) => (p ? { name: p.name, online: !!(p.conn && p.conn.open), admin: !!p.admin } : null)),
+    players: state.players.map((p, i) => (p ? { name: p.name, bot: !!p.bot, online: !!p.bot || !!(p.conn && p.conn.open), admin: !!p.admin } : null)),
     specs: Array.from(state.spectators).map(c => ({ cid: c.cid, name: c.name, admin: !!c.admin })),
     specCount: state.spectators.size,
     aim: (state.phase === 'aiming')
@@ -103,6 +106,8 @@ function roomMsg() {
 function broadcastRoom(except) { broadcast(roomMsg(), except); }
 
 function resetRack() {
+  botReadyAt = 0;
+  botPlan = null;
   state.balls = P.rack();
   state.phase = 'aiming';
   state.turn = state.breaker;
@@ -228,8 +233,30 @@ function startShot(a, p, off) {
 }
 
 /* ---------------- 物理主循环(60Hz) ---------------- */
-setInterval(() => {
+let botReadyAt = 0;
+let botPlan = null;
+const simulationTimer = setInterval(() => {
   const now = Date.now();
+  if (solo && state.players[0] && state.turn === 1 && (state.phase === 'aiming' || state.phase === 'placing')) {
+    if (!botReadyAt) {
+      botReadyAt = now + 900;
+      if (state.phase === 'placing') {
+        const spot = AI.place(state.balls, state.groups[1]);
+        Object.assign(state.balls[0], spot, { potted: false, vx: 0, vy: 0, wx: 0, wy: 0, wz: 0 });
+        state.phase = 'aiming';
+      }
+      botPlan = AI.chooseShot(state.balls, state.groups[1], state.isBreak);
+      state.aim = { ...botPlan, pulling: true, off: [0, 0] };
+      broadcastRoom();
+    } else if (now >= botReadyAt) {
+      startShot(botPlan.a, botPlan.p, [0, 0]);
+      botReadyAt = 0;
+      botPlan = null;
+    }
+  } else {
+    botReadyAt = 0;
+    botPlan = null;
+  }
   if (state.phase === 'sim' && state.shot) {
     const ev = P.step(state.balls, 1 / 60);
     for (const e of ev) {
@@ -266,7 +293,7 @@ setInterval(() => {
 }, 16);
 
 /* 心跳:清理死连接 */
-setInterval(() => {
+const heartbeatTimer = setInterval(() => {
   for (const c of conns) {
     if (!c.open) { conns.delete(c); continue; }
     if (!c.alive) { c.close(); continue; }
@@ -295,6 +322,10 @@ function onConnection(conn, req) {
   };
   conn.onclose = () => {
     conns.delete(conn);
+    if (solo && conns.size === 0) {
+      clearInterval(simulationTimer);
+      clearInterval(heartbeatTimer);
+    }
     if (conn.seat !== null && state.players[conn.seat] && state.players[conn.seat].conn === conn) {
       const leaver = conn.name || nameOf(conn.seat);
       state.players[conn.seat] = null;
@@ -400,7 +431,8 @@ function handleMessage(conn, m) {
         let off = [0, 0];
         if (Array.isArray(m.off) && m.off.length === 2 && isFinite(m.off[0]) && isFinite(m.off[1])) {
           off = [clamp(m.off[0], -0.55, 0.55), clamp(m.off[1], -0.55, 0.55)];
-          if (Math.hypot(off[0], off[1]) > 0.55) off = [0, 0]; // 击球点不得滑杆出球面
+          const radius = Math.hypot(off[0], off[1]);
+          if (radius > 0.55) off = off.map(v => v * 0.55 / radius);
         }
         startShot(clampAngle(m.a), p, off);
       }
@@ -421,6 +453,7 @@ function handleMessage(conn, m) {
       if (conn.seat !== null && state.phase === 'over') {
         if (!state.rematch[conn.seat]) {
           state.rematch[conn.seat] = true;
+          if (solo) state.rematch[1] = true;
           if (state.rematch[0] && state.rematch[1]) {
             state.breaker = 1 - state.breaker;
             resetRack();
@@ -487,6 +520,9 @@ function handleTest(m) {
   }
 }
 
+return onConnection;
+}
+
 /* ---------------- LAN 信息 ---------------- */
 function lanIPs() {
   const out = [];
@@ -508,7 +544,11 @@ const server = http.createServer((req, res) => {
   }
   serveStatic(req, res);
 });
-wslib.attach(server, onConnection);
+const onMultiplayerConnection = createRoom();
+wslib.attach(server, (conn, req) => {
+  const solo = new URL(req.url, 'http://localhost').searchParams.get('mode') === 'solo';
+  (solo ? createRoom(true) : onMultiplayerConnection)(conn, req);
+});
 
 server.listen(PORT, '0.0.0.0', () => {
   const ips = lanIPs();
