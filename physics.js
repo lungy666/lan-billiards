@@ -99,8 +99,8 @@
     const ratio = clamp(2.5 * b, -1.4, 1.4);
     cue.wx = ratio * (v0 / R) * (-dy);
     cue.wy = ratio * (v0 / R) * (dx);
-    // 左右塞(符号经实测校准:a>0 右塞,正对库边反弹向右偏)
-    cue.wz = 2.5 * a * (v0 / R);
+    // The tip offset is along (-dy, dx); r cross impulse gives negative wz for right english.
+    cue.wz = -2.5 * a * (v0 / R);
     return cue;
   }
 
@@ -123,7 +123,7 @@
     const ts = Math.hypot(tx, ty);
     let jtx = 0, jty = 0;
     if (ts > 1e-6) {
-      const jt = Math.min(MU_BALL * jn, ts * 2 / 7); // 库仑上限 / 完全咬合所需
+      const jt = Math.min(MU_BALL * jn, ts / 7); // Two equal solid spheres share the tangential impulse.
       jtx = -jt * tx / ts; jty = -jt * ty / ts;
     }
     b.vx += jn * nx + jtx; b.vy += jn * ny + jty;    // 冲量作用在 B
@@ -141,7 +141,7 @@
     const vn = b.vx * nx + b.vy * ny;
     if (vn >= 0) return;
     const tx0 = -ny, ty0 = nx;
-    const vt = b.vx * tx0 + b.vy * ty0 + b.wz * R;   // 接触点切向滑移(含侧塞表面线速度)
+    const vt = b.vx * tx0 + b.vy * ty0 - b.wz * R;
     const Jn = -(1 + CUSHION_E) * vn;
     let jt = 0;
     if (Math.abs(vt) > 1e-6) jt = -Math.sign(vt) * Math.min(MU_CUSHION * Jn, Math.abs(vt) * 2 / 7);
@@ -154,8 +154,10 @@
   // 推进一帧(dt 为帧时长,内部再细分),返回事件数组
   function step(balls, dt) {
     const ev = [];
-    const sub = dt / SUB;
-    for (let s = 0; s < SUB; s++) {
+    const maxSpeed = Math.max(0, ...balls.filter(b => !b.potted).map(b => Math.hypot(b.vx, b.vy)));
+    const subdivisions = Math.max(SUB, Math.ceil(maxSpeed * dt / 0.75));
+    const sub = dt / subdivisions;
+    for (let s = 0; s < subdivisions; s++) {
       // —— 三相运动:滑动 / 滚动+旋转 ——
       for (const b of balls) {
         if (b.potted) continue;
@@ -166,15 +168,16 @@
           // 滑动相:线性减速 + 摩擦力矩旋进自然滚动(竖轴旋转不受水平摩擦影响)
           const inv = 1 / us;
           const nx = ux * inv, ny = uy * inv;
-          b.vx -= SLIDE_A * nx * sub;
-          b.vy -= SLIDE_A * ny * sub;
-          b.wx -= (5 * SLIDE_A / (2 * R)) * ny * sub;
-          b.wy += (5 * SLIDE_A / (2 * R)) * nx * sub;
+          const impulse = Math.min(SLIDE_A * sub, us * 2 / 7);
+          b.vx -= impulse * nx;
+          b.vy -= impulse * ny;
+          b.wx -= (5 / (2 * R)) * ny * impulse;
+          b.wy += (5 / (2 * R)) * nx * impulse;
         } else {
           // 滚动相:滚动阻力线性减速,水平自旋锁定为自然滚动
           const vs = Math.hypot(b.vx, b.vy);
           if (vs > STOP_V) {
-            const k = 1 - (ROLL_A * sub) / vs;
+            const k = Math.max(0, 1 - (ROLL_A * sub) / vs);
             b.vx *= k; b.vy *= k;
             b.wx = -b.vy / R; b.wy = b.vx / R;
           } else if (vs > 0 || b.wx !== 0 || b.wy !== 0) {
@@ -251,6 +254,26 @@
     return true;
   }
 
+  // Preview uses the same initial state, timestep and solver as the server.
+  function predict(balls, angle, power, off, frames = 360) {
+    const copy = balls.filter(Boolean).map(b => ({ ...b, vx: 0, vy: 0, wx: 0, wy: 0, wz: 0 }));
+    const cue = copy.find(b => b.id === 0);
+    if (!cue || cue.potted) return [];
+    strike(cue, angle, power, off[0], off[1]);
+    const paths = new Map(copy.filter(b => !b.potted).map(b => [b.id, { id: b.id, points: [[b.x, b.y]] }]));
+    for (let i = 0; i < frames; i++) {
+      step(copy, 1 / 60);
+      for (const b of copy) {
+        const path = paths.get(b.id);
+        if (!path || b.potted) continue;
+        const last = path.points[path.points.length - 1];
+        if (Math.hypot(b.x - last[0], b.y - last[1]) > 1) path.points.push([b.x, b.y]);
+      }
+      if (allStopped(copy)) break;
+    }
+    return Array.from(paths.values()).filter(p => p.points.length > 1);
+  }
+
   // 自由球摆放校验:台面内且不与任何球重叠
   function validPlace(balls, x, y) {
     if (!(x >= R + 1 && x <= W - R - 1 && y >= R + 1 && y <= H - R - 1)) return false;
@@ -279,7 +302,7 @@
 
   return {
     W, H, R, POCKETS, CORNER_GAP, SIDE_GAP,
-    rack, step, allStopped, validPlace, respot, strike, ballType, groupCleared,
+    rack, step, predict, allStopped, validPlace, respot, strike, ballType, groupCleared,
     PARAMS: {
       MU_SLIDE, MU_ROLL, MU_SPIN, MU_BALL, CUSHION_E, MU_CUSHION,
       SLIDE_A, ROLL_A, BALL_E,

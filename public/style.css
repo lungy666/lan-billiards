@@ -430,6 +430,26 @@ footer {
   font-weight: 500;
 }
 .btn[disabled] { opacity: 0.45; cursor: default; }
+#switchModeBtn {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 7px 10px;
+  font-size: 12px;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+#precisionPanel { max-width: 440px; width: 100%; text-align: left; font-size: 12px; color: var(--text); }
+#precisionPanel summary { cursor: pointer; color: var(--accent); padding: 5px 0; }
+#precisionControls { border: 0; padding: 0; margin: 0; min-width: 0; }
+#precisionControls:disabled { opacity: 0.45; }
+#precisionControls label { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+#precisionControls input[type=range] { flex: 1; width: 90px; min-width: 50px; accent-color: var(--accent); }
+#precisionControls output { min-width: 36px; font-variant-numeric: tabular-nums; }
+.shot-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.shot-presets button { padding: 6px 8px; border: 1px solid var(--panel-line); border-radius: 6px; background: var(--panel); color: var(--text); cursor: pointer; }
+#preciseShoot { color: var(--accent); }
+.shot-note { color: var(--dim); font-size: 10px; line-height: 1.4; }
+@media (max-height: 650px) { #precisionPanel { max-height: 155px; overflow-y: auto; } }
 .linkbox {
   margin-top: 18px;
   background: rgba(0, 0, 0, 0.35);

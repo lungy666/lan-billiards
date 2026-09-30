@@ -5,6 +5,7 @@
   "description": "局域网双人台球(黑八)——零依赖 Node.js + 浏览器 Canvas",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
   }
 }
